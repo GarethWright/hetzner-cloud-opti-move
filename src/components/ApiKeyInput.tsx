@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Key } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Eye, EyeOff, Key, ExternalLink, Info } from 'lucide-react';
 
 interface ApiKeyInputProps {
   onSubmit: (apiKey: string) => void;
@@ -22,6 +23,29 @@ export const ApiKeyInput = ({ onSubmit, loading }: ApiKeyInputProps) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <Alert>
+        <Info className="h-4 w-4" />
+        <AlertDescription className="space-y-2">
+          <p className="font-semibold">How to get your Hetzner API key:</p>
+          <ol className="list-decimal list-inside space-y-1 text-sm">
+            <li>Log in to your Hetzner Cloud Console</li>
+            <li>Go to Security → API Tokens</li>
+            <li>Click "Generate API Token"</li>
+            <li>Give it a name and select "Read & Write" permissions</li>
+            <li>Copy the token and paste it below</li>
+          </ol>
+          <a
+            href="https://console.hetzner.cloud/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+          >
+            Open Hetzner Cloud Console
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </AlertDescription>
+      </Alert>
+
       <div className="space-y-2">
         <Label htmlFor="api-key" className="flex items-center gap-2">
           <Key className="h-4 w-4" />
