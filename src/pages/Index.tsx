@@ -4,16 +4,32 @@ import { useHetzner } from '@/hooks/useHetzner';
 import { ApiKeyInput } from '@/components/ApiKeyInput';
 import { ServerCard } from '@/components/ServerCard';
 import { AlternativeCard } from '@/components/AlternativeCard';
+import { BulkMigrationDialog } from '@/components/BulkMigrationDialog';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Cloud, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Cloud, RefreshCw, AlertTriangle, Layers } from 'lucide-react';
 
 const Index = () => {
   const [apiKey, setApiKey] = useState<string>('');
   const [servers, setServers] = useState<HetznerServer[]>([]);
   const [serverTypes, setServerTypes] = useState<HetznerServerType[]>([]);
   const [alternatives, setAlternatives] = useState<Map<number, CostAlternative[]>>(new Map());
+  const [selectedServers, setSelectedServers] = useState<Set<number>>(new Set());
+  const [bulkMigrating, setBulkMigrating] = useState(false);
   const { loading, getServers, getServerTypes, changeServerType } = useHetzner();
 
   const findCostAlternatives = (
@@ -91,6 +107,93 @@ const Index = () => {
     handleRefresh();
   };
 
+  const toggleServerSelection = (serverId: number) => {
+    const newSelection = new Set(selectedServers);
+    if (newSelection.has(serverId)) {
+      newSelection.delete(serverId);
+    } else {
+      newSelection.add(serverId);
+    }
+    setSelectedServers(newSelection);
+  };
+
+  const selectAllServers = () => {
+    const serversWithAlternatives = servers.filter(s => alternatives.has(s.id));
+    setSelectedServers(new Set(serversWithAlternatives.map(s => s.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedServers(new Set());
+  };
+
+  const getBestCommonAlternative = (): { serverType: HetznerServerType; totalSavings: number } | null => {
+    if (selectedServers.size === 0) return null;
+
+    const selectedServersList = servers.filter(s => selectedServers.has(s.id));
+    if (selectedServersList.length === 0) return null;
+
+    // Check if all selected servers have the same architecture
+    const architectures = new Set(
+      selectedServersList.map(s => s.server_type.name.toLowerCase().startsWith('cax') ? 'arm' : 'x86')
+    );
+    if (architectures.size > 1) return null; // Mixed architectures
+
+    // Find alternatives that work for ALL selected servers
+    const commonAlternatives = new Map<string, { serverType: HetznerServerType; totalSavings: number }>();
+
+    selectedServersList.forEach((server, index) => {
+      const serverAlts = alternatives.get(server.id) || [];
+      
+      serverAlts.forEach(alt => {
+        const key = alt.serverType.name;
+        if (index === 0) {
+          commonAlternatives.set(key, {
+            serverType: alt.serverType,
+            totalSavings: alt.monthlySavings
+          });
+        } else if (commonAlternatives.has(key)) {
+          const existing = commonAlternatives.get(key)!;
+          existing.totalSavings += alt.monthlySavings;
+        }
+      });
+    });
+
+    // Filter to only alternatives that work for all servers
+    const validAlternatives = Array.from(commonAlternatives.values()).filter(alt => {
+      return selectedServersList.every(server => {
+        const serverAlts = alternatives.get(server.id) || [];
+        return serverAlts.some(a => a.serverType.name === alt.serverType.name);
+      });
+    });
+
+    if (validAlternatives.length === 0) return null;
+
+    // Return the one with highest total savings
+    return validAlternatives.sort((a, b) => b.totalSavings - a.totalSavings)[0];
+  };
+
+  const handleBulkMigrate = async (powerOnAfter: boolean) => {
+    if (!apiKey || selectedServers.size === 0) return;
+
+    const bestAlternative = getBestCommonAlternative();
+    if (!bestAlternative) return;
+
+    setBulkMigrating(true);
+    const selectedServersList = servers.filter(s => selectedServers.has(s.id));
+
+    for (const server of selectedServersList) {
+      try {
+        await changeServerType(apiKey, server.id, bestAlternative.serverType.name, false, powerOnAfter);
+      } catch (error) {
+        console.error(`Failed to migrate server ${server.name}:`, error);
+      }
+    }
+
+    setBulkMigrating(false);
+    clearSelection();
+    handleRefresh();
+  };
+
   const totalMonthlySavings = Array.from(alternatives.values())
     .flat()
     .reduce((sum, alt) => sum + alt.monthlySavings, 0);
@@ -103,6 +206,15 @@ const Index = () => {
   const hasARMAlternatives = Array.from(alternatives.values())
     .flat()
     .some(alt => alt.serverType.name.toLowerCase().startsWith('cax'));
+
+  const bestCommonAlternative = getBestCommonAlternative();
+  const selectedServersList = servers.filter(s => selectedServers.has(s.id));
+  const hasMixedArchitectures = selectedServersList.length > 0 && (() => {
+    const architectures = new Set(
+      selectedServersList.map(s => s.server_type.name.toLowerCase().startsWith('cax') ? 'arm' : 'x86')
+    );
+    return architectures.size > 1;
+  })();
 
   if (!apiKey || servers.length === 0) {
     return (
@@ -129,16 +241,50 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background p-4 sm:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-4xl font-bold mb-2">Your Servers</h1>
             <p className="text-muted-foreground">
               {servers.length} server{servers.length !== 1 ? 's' : ''} found
+              {selectedServers.size > 0 && (
+                <span className="ml-2">
+                  • <strong>{selectedServers.size}</strong> selected
+                </span>
+              )}
             </p>
           </div>
-          <Button onClick={handleRefresh} disabled={loading} variant="outline" size="icon">
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex items-center gap-2">
+            {selectedServers.size > 0 && (
+              <>
+                <Button onClick={clearSelection} variant="outline" size="sm">
+                  Clear Selection
+                </Button>
+                {bestCommonAlternative && !hasMixedArchitectures && (
+                  <BulkMigrationDialog
+                    servers={selectedServersList}
+                    targetServerType={bestCommonAlternative.serverType}
+                    totalSavings={bestCommonAlternative.totalSavings}
+                    onConfirm={handleBulkMigrate}
+                    disabled={bulkMigrating || loading}
+                  />
+                )}
+                {hasMixedArchitectures && (
+                  <Button disabled variant="outline" size="lg" className="gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Mixed Architectures
+                  </Button>
+                )}
+              </>
+            )}
+            {selectedServers.size === 0 && serversWithAlternatives > 0 && (
+              <Button onClick={selectAllServers} variant="outline" size="sm">
+                Select All ({serversWithAlternatives})
+              </Button>
+            )}
+            <Button onClick={handleRefresh} disabled={loading || bulkMigrating} variant="outline" size="icon">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
 
         {alternatives.size > 0 && (
@@ -188,10 +334,21 @@ const Index = () => {
 
         {servers.map(server => {
           const serverAlternatives = alternatives.get(server.id) || [];
+          const hasAlternatives = serverAlternatives.length > 0;
           
           return (
             <div key={server.id} className="space-y-4">
-              <ServerCard server={server} />
+              <div className="flex items-start gap-3">
+                {hasAlternatives && (
+                  <Checkbox
+                    id={`server-${server.id}`}
+                    checked={selectedServers.has(server.id)}
+                    onCheckedChange={() => toggleServerSelection(server.id)}
+                    className="mt-6"
+                  />
+                )}
+                <div className="flex-1">
+                  <ServerCard server={server} />
               
               {serverAlternatives.length > 0 && (
                 <>
@@ -218,11 +375,13 @@ const Index = () => {
                 </>
               )}
               
-              {serverAlternatives.length === 0 && (
-                <p className="text-center text-sm text-muted-foreground py-4">
-                  No cost-effective alternatives found for this server
-                </p>
-              )}
+                  {serverAlternatives.length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground py-4">
+                      No cost-effective alternatives found for this server
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           );
         })}
