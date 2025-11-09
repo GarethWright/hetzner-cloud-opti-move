@@ -67,10 +67,23 @@ export const AlternativeCard = ({
         </div>
 
         {isARM && (
-          <Alert variant="default" className="border-yellow-500/50 bg-yellow-500/10">
-            <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
-            <AlertDescription className="text-xs">
-              ARM architecture - Ensure your software is compatible with ARM processors
+          <Alert className="border-amber-500 bg-amber-500/10">
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <AlertDescription className="text-xs space-y-1">
+              <p className="font-semibold text-amber-900 dark:text-amber-100">
+                ⚠️ Architecture Compatibility Check Required
+              </p>
+              <p className="text-amber-800 dark:text-amber-200">
+                This is an ARM-based server. Verify your applications and dependencies support ARM64 architecture before migrating.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {!isARM && (
+          <Alert className="border-green-500/50 bg-green-500/10">
+            <AlertDescription className="text-xs text-green-800 dark:text-green-200 font-medium">
+              ✓ Same x86 architecture - Full compatibility with your current setup
             </AlertDescription>
           </Alert>
         )}

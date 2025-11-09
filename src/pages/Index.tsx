@@ -6,7 +6,8 @@ import { ServerCard } from '@/components/ServerCard';
 import { AlternativeCard } from '@/components/AlternativeCard';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Cloud, RefreshCw } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Cloud, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const Index = () => {
   const [apiKey, setApiKey] = useState<string>('');
@@ -95,6 +96,13 @@ const Index = () => {
     .reduce((sum, alt) => sum + alt.monthlySavings, 0);
 
   const totalYearlySavings = totalMonthlySavings * 12;
+  
+  const serversWithAlternatives = alternatives.size;
+  const totalAlternatives = Array.from(alternatives.values()).reduce((sum, alts) => sum + alts.length, 0);
+  
+  const hasARMAlternatives = Array.from(alternatives.values())
+    .flat()
+    .some(alt => alt.serverType.name.toLowerCase().startsWith('cax'));
 
   if (!apiKey || servers.length === 0) {
     return (
@@ -134,22 +142,47 @@ const Index = () => {
         </div>
 
         {alternatives.size > 0 && (
-          <div className="bg-primary/5 rounded-lg p-6 border border-primary/20">
-            <h2 className="text-2xl font-bold mb-2">Potential Savings</h2>
-            <div className="grid grid-cols-2 gap-4">
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-6 border border-green-200 dark:border-green-800">
+            <div className="flex items-start justify-between mb-4">
               <div>
-                <p className="text-sm text-muted-foreground">Monthly</p>
-                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                <h2 className="text-2xl font-bold mb-1">💰 Cost Optimization Summary</h2>
+                <p className="text-sm text-muted-foreground">
+                  Analysis of {servers.length} server{servers.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <div className="bg-background/60 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Servers with Alternatives</p>
+                <p className="text-2xl font-bold">{serversWithAlternatives} / {servers.length}</p>
+              </div>
+              <div className="bg-background/60 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Total Alternatives Found</p>
+                <p className="text-2xl font-bold">{totalAlternatives}</p>
+              </div>
+              <div className="bg-background/60 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Potential Monthly Savings</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   €{totalMonthlySavings.toFixed(2)}
                 </p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Yearly</p>
-                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+              <div className="bg-background/60 rounded-lg p-4">
+                <p className="text-xs text-muted-foreground mb-1">Potential Yearly Savings</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   €{totalYearlySavings.toFixed(2)}
                 </p>
               </div>
             </div>
+            
+            {hasARMAlternatives && (
+              <Alert className="border-amber-500 bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+                  Some alternatives use ARM architecture. Review compatibility before migrating.
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
         )}
 
