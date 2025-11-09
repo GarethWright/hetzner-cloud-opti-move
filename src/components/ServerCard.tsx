@@ -12,6 +12,9 @@ export const ServerCard = ({ server }: ServerCardProps) => {
     ? parseFloat(server.server_type.prices[0].price_monthly.gross).toFixed(2)
     : 'N/A';
   const statusColor = server.status === 'running' ? 'bg-green-500' : 'bg-yellow-500';
+  
+  const isARM = server.server_type.name.toLowerCase().startsWith('cax');
+  const architecture = isARM ? 'ARM (Ampere Altra)' : 'x86 (AMD/Intel)';
 
   return (
     <Card>
@@ -46,7 +49,11 @@ export const ServerCard = ({ server }: ServerCardProps) => {
             <span>{server.datacenter.location.city}</span>
           </div>
         </div>
-        <div className="pt-2 border-t">
+        <div className="pt-2 border-t space-y-2">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">Architecture:</span>
+            <span className="font-medium text-sm">{architecture}</span>
+          </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Type:</span>
             <Badge variant="secondary">{server.server_type.name}</Badge>
