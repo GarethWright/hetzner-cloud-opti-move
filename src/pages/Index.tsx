@@ -126,7 +126,7 @@ const Index = () => {
     setSelectedServers(new Set());
   };
 
-  const getBestCommonAlternative = (): { serverType: HetznerServerType; totalSavings: number } | null => {
+  const getBulkMigrationSummary = (): { migrations: Array<{ server: HetznerServer; targetType: HetznerServerType; savings: number }>; totalSavings: number } | null => {
     if (selectedServers.size === 0) return null;
 
     const selectedServersList = servers.filter(s => selectedServers.has(s.id));
@@ -138,59 +138,41 @@ const Index = () => {
     );
     if (architectures.size > 1) return null; // Mixed architectures
 
-    // Get alternatives for the first server
-    const firstServerAlts = alternatives.get(selectedServersList[0].id) || [];
-    if (firstServerAlts.length === 0) return null;
-
-    // Find alternatives that exist for ALL selected servers
-    const commonAlternatives: { serverType: HetznerServerType; totalSavings: number }[] = [];
-
-    for (const alt of firstServerAlts) {
-      const alternativeName = alt.serverType.name;
-      let totalSavings = 0;
-      let worksForAll = true;
-
-      // Check if this alternative exists for all selected servers
-      for (const server of selectedServersList) {
+    // Build migration plan with each server's best alternative
+    const migrations = selectedServersList
+      .map(server => {
         const serverAlts = alternatives.get(server.id) || [];
-        const matchingAlt = serverAlts.find(a => a.serverType.name === alternativeName);
+        if (serverAlts.length === 0) return null;
         
-        if (matchingAlt) {
-          totalSavings += matchingAlt.monthlySavings;
-        } else {
-          worksForAll = false;
-          break;
-        }
-      }
+        const bestAlt = serverAlts[0]; // First alternative is the best (already sorted)
+        return {
+          server,
+          targetType: bestAlt.serverType,
+          savings: bestAlt.monthlySavings
+        };
+      })
+      .filter(m => m !== null) as Array<{ server: HetznerServer; targetType: HetznerServerType; savings: number }>;
 
-      if (worksForAll) {
-        commonAlternatives.push({
-          serverType: alt.serverType,
-          totalSavings
-        });
-      }
-    }
+    if (migrations.length === 0) return null;
 
-    if (commonAlternatives.length === 0) return null;
+    const totalSavings = migrations.reduce((sum, m) => sum + m.savings, 0);
 
-    // Return the one with highest total savings
-    return commonAlternatives.sort((a, b) => b.totalSavings - a.totalSavings)[0];
+    return { migrations, totalSavings };
   };
 
   const handleBulkMigrate = async (powerOnAfter: boolean) => {
     if (!apiKey || selectedServers.size === 0) return;
 
-    const bestAlternative = getBestCommonAlternative();
-    if (!bestAlternative) return;
+    const summary = getBulkMigrationSummary();
+    if (!summary) return;
 
     setBulkMigrating(true);
-    const selectedServersList = servers.filter(s => selectedServers.has(s.id));
 
-    for (const server of selectedServersList) {
+    for (const migration of summary.migrations) {
       try {
-        await changeServerType(apiKey, server.id, bestAlternative.serverType.name, false, powerOnAfter);
+        await changeServerType(apiKey, migration.server.id, migration.targetType.name, false, powerOnAfter);
       } catch (error) {
-        console.error(`Failed to migrate server ${server.name}:`, error);
+        console.error(`Failed to migrate server ${migration.server.name}:`, error);
       }
     }
 
@@ -212,7 +194,7 @@ const Index = () => {
     .flat()
     .some(alt => alt.serverType.name.toLowerCase().startsWith('cax'));
 
-  const bestCommonAlternative = getBestCommonAlternative();
+  const bulkMigrationSummary = getBulkMigrationSummary();
   const selectedServersList = servers.filter(s => selectedServers.has(s.id));
   const hasMixedArchitectures = selectedServersList.length > 0 && (() => {
     const architectures = new Set(
@@ -268,17 +250,16 @@ const Index = () => {
                       Cannot bulk migrate: Mixed architectures (ARM + x86)
                     </span>
                   </Alert>
-                ) : bestCommonAlternative ? (
+                ) : bulkMigrationSummary ? (
                   <BulkMigrationDialog
-                    servers={selectedServersList}
-                    targetServerType={bestCommonAlternative.serverType}
-                    totalSavings={bestCommonAlternative.totalSavings}
+                    migrations={bulkMigrationSummary.migrations}
+                    totalSavings={bulkMigrationSummary.totalSavings}
                     onConfirm={handleBulkMigrate}
                     disabled={bulkMigrating || loading}
                   />
                 ) : (
                   <Badge variant="secondary" className="px-3 py-2">
-                    No common alternatives found
+                    No alternatives found for selected servers
                   </Badge>
                 )}
                 <Button onClick={clearSelection} variant="outline" size="sm">
@@ -336,7 +317,7 @@ const Index = () => {
                 <Layers className="h-4 w-4 text-primary" />
                 <AlertDescription className="text-xs">
                   <p className="font-semibold mb-1">💡 Tip: Use Bulk Migration</p>
-                  <p>Select multiple servers using the checkboxes below to migrate them all at once to the best cost-effective option.</p>
+                  <p>Select multiple servers using the checkboxes below to migrate them all at once to their individual best alternatives.</p>
                 </AlertDescription>
               </Alert>
             )}
