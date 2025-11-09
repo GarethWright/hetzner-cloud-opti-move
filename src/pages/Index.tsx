@@ -138,38 +138,43 @@ const Index = () => {
     );
     if (architectures.size > 1) return null; // Mixed architectures
 
-    // Find alternatives that work for ALL selected servers
-    const commonAlternatives = new Map<string, { serverType: HetznerServerType; totalSavings: number }>();
+    // Get alternatives for the first server
+    const firstServerAlts = alternatives.get(selectedServersList[0].id) || [];
+    if (firstServerAlts.length === 0) return null;
 
-    selectedServersList.forEach((server, index) => {
-      const serverAlts = alternatives.get(server.id) || [];
-      
-      serverAlts.forEach(alt => {
-        const key = alt.serverType.name;
-        if (index === 0) {
-          commonAlternatives.set(key, {
-            serverType: alt.serverType,
-            totalSavings: alt.monthlySavings
-          });
-        } else if (commonAlternatives.has(key)) {
-          const existing = commonAlternatives.get(key)!;
-          existing.totalSavings += alt.monthlySavings;
-        }
-      });
-    });
+    // Find alternatives that exist for ALL selected servers
+    const commonAlternatives: { serverType: HetznerServerType; totalSavings: number }[] = [];
 
-    // Filter to only alternatives that work for all servers
-    const validAlternatives = Array.from(commonAlternatives.values()).filter(alt => {
-      return selectedServersList.every(server => {
+    for (const alt of firstServerAlts) {
+      const alternativeName = alt.serverType.name;
+      let totalSavings = 0;
+      let worksForAll = true;
+
+      // Check if this alternative exists for all selected servers
+      for (const server of selectedServersList) {
         const serverAlts = alternatives.get(server.id) || [];
-        return serverAlts.some(a => a.serverType.name === alt.serverType.name);
-      });
-    });
+        const matchingAlt = serverAlts.find(a => a.serverType.name === alternativeName);
+        
+        if (matchingAlt) {
+          totalSavings += matchingAlt.monthlySavings;
+        } else {
+          worksForAll = false;
+          break;
+        }
+      }
 
-    if (validAlternatives.length === 0) return null;
+      if (worksForAll) {
+        commonAlternatives.push({
+          serverType: alt.serverType,
+          totalSavings
+        });
+      }
+    }
+
+    if (commonAlternatives.length === 0) return null;
 
     // Return the one with highest total savings
-    return validAlternatives.sort((a, b) => b.totalSavings - a.totalSavings)[0];
+    return commonAlternatives.sort((a, b) => b.totalSavings - a.totalSavings)[0];
   };
 
   const handleBulkMigrate = async (powerOnAfter: boolean) => {
