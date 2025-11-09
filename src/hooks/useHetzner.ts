@@ -85,6 +85,26 @@ export const useHetzner = () => {
     }
   };
 
+  const waitForServerStatus = async (
+    apiKey: string,
+    serverId: number,
+    targetStatus: string,
+    maxAttempts: number = 30
+  ): Promise<boolean> => {
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        const data = await fetchWithAuth(`/servers/${serverId}`, apiKey);
+        if (data.server.status === targetStatus) {
+          return true;
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      } catch (error) {
+        console.error('Error checking server status:', error);
+      }
+    }
+    return false;
+  };
+
   const changeServerType = async (
     apiKey: string,
     serverId: number,
@@ -93,20 +113,27 @@ export const useHetzner = () => {
   ) => {
     setLoading(true);
     try {
-      // First, power off the server
-      toast({
-        title: 'Powering off server',
-        description: 'Server must be offline to change type...',
-      });
+      // First, check if server is already off
+      const serverData = await fetchWithAuth(`/servers/${serverId}`, apiKey);
       
-      await fetchWithAuth(
-        `/servers/${serverId}/actions/poweroff`, 
-        apiKey, 
-        'POST'
-      );
-      
-      // Wait a bit for the server to power off
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      if (serverData.server.status !== 'off') {
+        toast({
+          title: 'Powering off server',
+          description: 'Server must be offline to change type...',
+        });
+        
+        await fetchWithAuth(
+          `/servers/${serverId}/actions/poweroff`, 
+          apiKey, 
+          'POST'
+        );
+        
+        // Wait for server to be fully powered off
+        const isOff = await waitForServerStatus(apiKey, serverId, 'off');
+        if (!isOff) {
+          throw new Error('Server did not power off in time');
+        }
+      }
       
       // Now change the server type
       toast({
