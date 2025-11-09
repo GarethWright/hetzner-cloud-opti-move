@@ -8,7 +8,9 @@ interface ServerCardProps {
 }
 
 export const ServerCard = ({ server }: ServerCardProps) => {
-  const monthlyPrice = server.server_type.prices[0]?.price_monthly.gross || 'N/A';
+  const monthlyPrice = server.server_type.prices[0]?.price_monthly.gross 
+    ? parseFloat(server.server_type.prices[0].price_monthly.gross).toFixed(2)
+    : 'N/A';
   const statusColor = server.status === 'running' ? 'bg-green-500' : 'bg-yellow-500';
 
   return (

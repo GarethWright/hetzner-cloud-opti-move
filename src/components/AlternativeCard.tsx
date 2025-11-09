@@ -17,7 +17,9 @@ export const AlternativeCard = ({
   onMigrate,
   loading,
 }: AlternativeCardProps) => {
-  const monthlyPrice = alternative.serverType.prices[0]?.price_monthly.gross || 'N/A';
+  const monthlyPrice = alternative.serverType.prices[0]?.price_monthly.gross
+    ? parseFloat(alternative.serverType.prices[0].price_monthly.gross).toFixed(2)
+    : 'N/A';
 
   return (
     <Card className="border-primary/20">
