@@ -247,19 +247,23 @@ const Index = () => {
             <p className="text-muted-foreground">
               {servers.length} server{servers.length !== 1 ? 's' : ''} found
               {selectedServers.size > 0 && (
-                <span className="ml-2">
-                  • <strong>{selectedServers.size}</strong> selected
-                </span>
+                <Badge variant="default" className="ml-2">
+                  {selectedServers.size} selected
+                </Badge>
               )}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {selectedServers.size > 0 && (
               <>
-                <Button onClick={clearSelection} variant="outline" size="sm">
-                  Clear Selection
-                </Button>
-                {bestCommonAlternative && !hasMixedArchitectures && (
+                {hasMixedArchitectures ? (
+                  <Alert className="inline-flex items-center px-3 py-2 border-amber-500 bg-amber-500/10">
+                    <AlertTriangle className="h-4 w-4 mr-2 text-amber-600" />
+                    <span className="text-sm text-amber-800 dark:text-amber-200">
+                      Cannot bulk migrate: Mixed architectures (ARM + x86)
+                    </span>
+                  </Alert>
+                ) : bestCommonAlternative ? (
                   <BulkMigrationDialog
                     servers={selectedServersList}
                     targetServerType={bestCommonAlternative.serverType}
@@ -267,28 +271,29 @@ const Index = () => {
                     onConfirm={handleBulkMigrate}
                     disabled={bulkMigrating || loading}
                   />
+                ) : (
+                  <Badge variant="secondary" className="px-3 py-2">
+                    No common alternatives found
+                  </Badge>
                 )}
-                {hasMixedArchitectures && (
-                  <Button disabled variant="outline" size="lg" className="gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Mixed Architectures
-                  </Button>
-                )}
+                <Button onClick={clearSelection} variant="outline" size="sm">
+                  Clear Selection
+                </Button>
               </>
             )}
-            {selectedServers.size === 0 && serversWithAlternatives > 0 && (
-              <Button onClick={selectAllServers} variant="outline" size="sm">
+            {selectedServers.size === 0 && serversWithAlternatives > 1 && (
+              <Button onClick={selectAllServers} variant="secondary" size="sm">
                 Select All ({serversWithAlternatives})
               </Button>
             )}
             <Button onClick={handleRefresh} disabled={loading || bulkMigrating} variant="outline" size="icon">
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${(loading || bulkMigrating) ? 'animate-spin' : ''}`} />
             </Button>
           </div>
         </div>
 
         {alternatives.size > 0 && (
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-6 border border-green-200 dark:border-green-800">
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 rounded-lg p-6 border border-green-200 dark:border-green-800 space-y-4">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h2 className="text-2xl font-bold mb-1">💰 Cost Optimization Summary</h2>
@@ -298,7 +303,7 @@ const Index = () => {
               </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-background/60 rounded-lg p-4">
                 <p className="text-xs text-muted-foreground mb-1">Servers with Alternatives</p>
                 <p className="text-2xl font-bold">{serversWithAlternatives} / {servers.length}</p>
@@ -320,6 +325,16 @@ const Index = () => {
                 </p>
               </div>
             </div>
+
+            {serversWithAlternatives > 1 && (
+              <Alert className="border-primary bg-primary/10">
+                <Layers className="h-4 w-4 text-primary" />
+                <AlertDescription className="text-xs">
+                  <p className="font-semibold mb-1">💡 Tip: Use Bulk Migration</p>
+                  <p>Select multiple servers using the checkboxes below to migrate them all at once to the best cost-effective option.</p>
+                </AlertDescription>
+              </Alert>
+            )}
             
             {hasARMAlternatives && (
               <Alert className="border-amber-500 bg-amber-500/10">
@@ -335,17 +350,20 @@ const Index = () => {
         {servers.map(server => {
           const serverAlternatives = alternatives.get(server.id) || [];
           const hasAlternatives = serverAlternatives.length > 0;
+          const isSelected = selectedServers.has(server.id);
           
           return (
             <div key={server.id} className="space-y-4">
-              <div className="flex items-start gap-3">
+              <div className={`flex items-start gap-3 transition-all ${isSelected ? 'ring-2 ring-primary rounded-lg p-2' : ''}`}>
                 {hasAlternatives && (
-                  <Checkbox
-                    id={`server-${server.id}`}
-                    checked={selectedServers.has(server.id)}
-                    onCheckedChange={() => toggleServerSelection(server.id)}
-                    className="mt-6"
-                  />
+                  <div className="flex items-center pt-6">
+                    <Checkbox
+                      id={`server-${server.id}`}
+                      checked={isSelected}
+                      onCheckedChange={() => toggleServerSelection(server.id)}
+                      className="h-5 w-5"
+                    />
+                  </div>
                 )}
                 <div className="flex-1">
                   <ServerCard server={server} />
