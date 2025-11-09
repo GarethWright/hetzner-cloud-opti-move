@@ -8,16 +8,24 @@ export const useHetzner = () => {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const fetchWithAuth = async (endpoint: string, apiKey: string) => {
+  const fetchWithAuth = async (
+    endpoint: string, 
+    apiKey: string, 
+    method: string = 'GET',
+    body?: any
+  ) => {
     const response = await fetch(`${HETZNER_API_BASE}${endpoint}`, {
+      method,
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
+      body: body ? JSON.stringify(body) : undefined,
     });
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`API Error: ${response.status} - ${errorData.error?.message || response.statusText}`);
     }
 
     return response.json();
@@ -60,7 +68,7 @@ export const useHetzner = () => {
   const rebuildServer = async (apiKey: string, serverId: number, image: string) => {
     setLoading(true);
     try {
-      await fetchWithAuth(`/servers/${serverId}/actions/rebuild`, apiKey);
+      await fetchWithAuth(`/servers/${serverId}/actions/rebuild`, apiKey, 'POST', { image });
       toast({
         title: 'Server rebuild initiated',
         description: 'Your server is being rebuilt. This may take a few minutes.',
@@ -80,12 +88,20 @@ export const useHetzner = () => {
   const changeServerType = async (
     apiKey: string,
     serverId: number,
-    serverTypeId: number,
+    serverType: string,
     upgradeDisk: boolean = false
   ) => {
     setLoading(true);
     try {
-      await fetchWithAuth(`/servers/${serverId}/actions/change_type`, apiKey);
+      await fetchWithAuth(
+        `/servers/${serverId}/actions/change_type`, 
+        apiKey, 
+        'POST',
+        { 
+          server_type: serverType,
+          upgrade_disk: upgradeDisk 
+        }
+      );
       toast({
         title: 'Server type change initiated',
         description: 'Your server is being migrated. This may take several minutes.',

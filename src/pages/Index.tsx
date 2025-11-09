@@ -85,9 +85,9 @@ const Index = () => {
     }
   };
 
-  const handleMigrate = async (serverId: number, newServerTypeId: number) => {
+  const handleMigrate = async (serverId: number, newServerTypeName: string) => {
     if (!apiKey) return;
-    await changeServerType(apiKey, serverId, newServerTypeId);
+    await changeServerType(apiKey, serverId, newServerTypeName);
     handleRefresh();
   };
 
@@ -210,7 +210,7 @@ const Index = () => {
                         key={idx}
                         alternative={alt}
                         currentServerName={server.name}
-                        onMigrate={() => handleMigrate(server.id, alt.serverType.id)}
+                        onMigrate={() => handleMigrate(server.id, alt.serverType.name)}
                         loading={loading}
                       />
                     ))}
