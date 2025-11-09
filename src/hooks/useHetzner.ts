@@ -109,7 +109,8 @@ export const useHetzner = () => {
     apiKey: string,
     serverId: number,
     serverType: string,
-    upgradeDisk: boolean = false
+    upgradeDisk: boolean = false,
+    powerOnAfter: boolean = true
   ) => {
     setLoading(true);
     try {
@@ -141,7 +142,7 @@ export const useHetzner = () => {
         description: 'Migrating to new server type...',
       });
       
-      await fetchWithAuth(
+      const changeResult = await fetchWithAuth(
         `/servers/${serverId}/actions/change_type`, 
         apiKey, 
         'POST',
@@ -151,10 +152,32 @@ export const useHetzner = () => {
         }
       );
       
-      toast({
-        title: 'Migration successful',
-        description: 'Server type has been changed. You can power it back on from the Hetzner console.',
-      });
+      if (powerOnAfter) {
+        toast({
+          title: 'Migration complete',
+          description: 'Powering server back on...',
+        });
+        
+        // Wait for the change_type action to complete
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Power the server back on
+        await fetchWithAuth(
+          `/servers/${serverId}/actions/poweron`, 
+          apiKey, 
+          'POST'
+        );
+        
+        toast({
+          title: 'Migration successful',
+          description: 'Server has been migrated and is now powering on.',
+        });
+      } else {
+        toast({
+          title: 'Migration successful',
+          description: 'Server type has been changed. You can power it back on from the Hetzner console.',
+        });
+      }
     } catch (error) {
       toast({
         title: 'Migration failed',

@@ -1,8 +1,11 @@
+import React from 'react';
 import { CostAlternative } from '@/types/hetzner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +22,7 @@ import { TrendingDown, Cpu, HardDrive, ArrowRight, AlertTriangle, Power } from '
 interface AlternativeCardProps {
   alternative: CostAlternative;
   currentServerName: string;
-  onMigrate: () => void;
+  onMigrate: (powerOnAfter: boolean) => void;
   loading?: boolean;
 }
 
@@ -29,6 +32,7 @@ export const AlternativeCard = ({
   onMigrate,
   loading,
 }: AlternativeCardProps) => {
+  const [powerOnAfter, setPowerOnAfter] = React.useState(true);
   const monthlyPrice = alternative.serverType.prices[0]?.price_monthly.gross
     ? parseFloat(alternative.serverType.prices[0].price_monthly.gross).toFixed(2)
     : 'N/A';
@@ -149,14 +153,21 @@ export const AlternativeCard = ({
                   </AlertDescription>
                 </Alert>
                 
-                <p className="text-sm">
-                  After migration, log into your Hetzner console to power on the server.
-                </p>
+                <div className="flex items-center space-x-2 mt-4 p-3 bg-background rounded-md border">
+                  <Checkbox 
+                    id="power-on" 
+                    checked={powerOnAfter}
+                    onCheckedChange={(checked) => setPowerOnAfter(checked as boolean)}
+                  />
+                  <Label htmlFor="power-on" className="text-sm cursor-pointer">
+                    Automatically power on server after migration
+                  </Label>
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={onMigrate} className="bg-destructive hover:bg-destructive/90">
+              <AlertDialogAction onClick={() => onMigrate(powerOnAfter)} className="bg-destructive hover:bg-destructive/90">
                 Proceed with Migration
               </AlertDialogAction>
             </AlertDialogFooter>
