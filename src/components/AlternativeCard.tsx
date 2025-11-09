@@ -3,7 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { TrendingDown, Cpu, HardDrive, ArrowRight, AlertTriangle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { TrendingDown, Cpu, HardDrive, ArrowRight, AlertTriangle, Power } from 'lucide-react';
 
 interface AlternativeCardProps {
   alternative: CostAlternative;
@@ -103,14 +114,54 @@ export const AlternativeCard = ({
           </div>
         </div>
 
-        <Button onClick={onMigrate} disabled={loading} className="w-full gap-2">
-          {loading ? 'Migrating...' : (
-            <>
-              Migrate to {alternative.serverType.name}
-              <ArrowRight className="h-4 w-4" />
-            </>
-          )}
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button disabled={loading} className="w-full gap-2">
+              {loading ? 'Migrating...' : (
+                <>
+                  Migrate to {alternative.serverType.name}
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <Power className="h-5 w-5 text-destructive" />
+                Confirm Server Migration
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3 text-left">
+                <p className="font-semibold text-foreground">
+                  This will migrate <span className="font-bold">{currentServerName}</span> to {alternative.serverType.name}
+                </p>
+                
+                <Alert className="border-amber-500 bg-amber-500/10">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertDescription className="text-xs text-amber-800 dark:text-amber-200">
+                    <p className="font-semibold mb-1">⚠️ Important:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Your server will be <strong>powered off</strong> automatically</li>
+                      <li>Migration takes several minutes</li>
+                      <li>You'll need to manually power on the server after migration</li>
+                      {isARM && <li className="text-amber-900 dark:text-amber-100"><strong>Verify ARM compatibility first!</strong></li>}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+                
+                <p className="text-sm">
+                  After migration, log into your Hetzner console to power on the server.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onMigrate} className="bg-destructive hover:bg-destructive/90">
+                Proceed with Migration
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );

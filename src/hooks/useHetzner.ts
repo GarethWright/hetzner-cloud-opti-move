@@ -93,6 +93,27 @@ export const useHetzner = () => {
   ) => {
     setLoading(true);
     try {
+      // First, power off the server
+      toast({
+        title: 'Powering off server',
+        description: 'Server must be offline to change type...',
+      });
+      
+      await fetchWithAuth(
+        `/servers/${serverId}/actions/poweroff`, 
+        apiKey, 
+        'POST'
+      );
+      
+      // Wait a bit for the server to power off
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Now change the server type
+      toast({
+        title: 'Changing server type',
+        description: 'Migrating to new server type...',
+      });
+      
       await fetchWithAuth(
         `/servers/${serverId}/actions/change_type`, 
         apiKey, 
@@ -102,13 +123,14 @@ export const useHetzner = () => {
           upgrade_disk: upgradeDisk 
         }
       );
+      
       toast({
-        title: 'Server type change initiated',
-        description: 'Your server is being migrated. This may take several minutes.',
+        title: 'Migration successful',
+        description: 'Server type has been changed. You can power it back on from the Hetzner console.',
       });
     } catch (error) {
       toast({
-        title: 'Error changing server type',
+        title: 'Migration failed',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
