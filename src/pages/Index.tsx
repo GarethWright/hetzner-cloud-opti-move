@@ -138,13 +138,24 @@ const Index = () => {
     );
     if (architectures.size > 1) return null; // Mixed architectures
 
-    // Build migration plan with each server's best alternative
+    // Build migration plan with each server's best alternative (same architecture only)
     const migrations = selectedServersList
       .map(server => {
         const serverAlts = alternatives.get(server.id) || [];
         if (serverAlts.length === 0) return null;
         
-        const bestAlt = serverAlts[0]; // First alternative is the best (already sorted)
+        // Get source server architecture
+        const sourceIsARM = server.server_type.name.toLowerCase().startsWith('cax');
+        
+        // Filter alternatives to only include same architecture
+        const sameArchAlts = serverAlts.filter(alt => {
+          const targetIsARM = alt.serverType.name.toLowerCase().startsWith('cax');
+          return sourceIsARM === targetIsARM;
+        });
+        
+        if (sameArchAlts.length === 0) return null;
+        
+        const bestAlt = sameArchAlts[0]; // First alternative is the best (already sorted)
         return {
           server,
           targetType: bestAlt.serverType,
