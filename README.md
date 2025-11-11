@@ -1,7 +1,7 @@
 ## Hetzner cloud cost optimisation
 
 - I managed to save £270 a year!
-- 
+  
 **URL**: https://hetzner.balls2.ai
 
 
